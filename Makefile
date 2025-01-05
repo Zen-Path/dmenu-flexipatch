@@ -6,18 +6,15 @@ include config.mk
 SRC = drw.c dmenu.c stest.c util.c
 OBJ = $(SRC:.c=.o)
 
+FLEX_SCRIPT = flexipatch-finalizer/flexipatch-finalizer.sh
+FLEX_TEMP_DIR = /tmp/dmenu-flex
+
 all: dmenu stest
 
 .c.o:
 	$(CC) -c $(CFLAGS) $<
 
-config.h:
-	cp config.def.h $@
-
-patches.h:
-	cp patches.def.h $@
-
-$(OBJ): arg.h config.h config.mk drw.h patches.h
+$(OBJ): arg.h config.mk drw.h
 
 dmenu: dmenu.o drw.o util.o
 	$(CC) -o $@ dmenu.o drw.o util.o $(LDFLAGS)
@@ -37,7 +34,7 @@ dist: clean
 	gzip dmenu-$(VERSION).tar
 	rm -rf dmenu-$(VERSION)
 
-install: all
+install: flex all
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
 	cp -f dmenu dmenu_path dmenu_run stest $(DESTDIR)$(PREFIX)/bin
 	chmod 755 $(DESTDIR)$(PREFIX)/bin/dmenu
@@ -58,4 +55,16 @@ uninstall:
 		$(DESTDIR)$(MANPREFIX)/man1/dmenu.1\
 		$(DESTDIR)$(MANPREFIX)/man1/stest.1
 
-.PHONY: all clean dist install uninstall
+flex:
+	rm -rf "$(FLEX_TEMP_DIR)"
+
+	if [ ! -f $(FLEX_SCRIPT) ]; then \
+		echo "warn: '$(FLEX_SCRIPT)' not found."; \
+		cp config.def.h config.h; \
+		exit 1; \
+	fi; \
+	bash $(FLEX_SCRIPT) --run --directory $(CURDIR) --output $(FLEX_TEMP_DIR)
+
+	cp "$(FLEX_TEMP_DIR)/config.def.h" config.h
+
+.PHONY: all clean dist install uninstall flex
