@@ -70,6 +70,12 @@ enum {
 	SchemePurple,
 	SchemeRed,
 	#endif // EMOJI_HIGHLIGHT_PATCH
+	#if VI_MODE_PATCH
+	SchemeCursor,
+	#endif // VI_MODE_PATCH
+	#if CARET_SCHEME_PATCH
+	SchemeCaret,
+	#endif // CARET_SCHEME_PATCH
 	SchemeLast,
 }; /* color schemes */
 
@@ -268,14 +274,19 @@ cleanup(void)
 {
 	size_t i;
 
-	XUngrabKey(dpy, AnyKey, AnyModifier, root);
+	XUngrabKeyboard(dpy, CurrentTime);
 	#if INPUTMETHOD_PATCH
 	XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
 	#endif // INPUTMETHOD_PATCH
 	for (i = 0; i < SchemeLast; i++)
 		free(scheme[i]);
-	for (i = 0; items && items[i].text; ++i)
+	for (i = 0; items && items[i].text; ++i) {
+		#if SEPARATOR_PATCH
+		free(separator_reverse ? items[i].text_output : items[i].text);
+		#else
 		free(items[i].text);
+		#endif // SEPARATOR_PATCH
+	}
 	free(items);
 	#if HIGHPRIORITY_PATCH
 	for (i = 0; i < hplength; ++i)
@@ -546,6 +557,16 @@ drawmenu(void)
 	drw_text_align(drw, x, 0, curpos, bh, text, cursor, AlignR);
 	drw_text_align(drw, x + curpos, 0, w - curpos, bh, text + cursor, strlen(text) - cursor, AlignL);
 	#endif // PASSWORD_PATCH
+
+	#if VI_MODE_PATCH
+	if (using_vi_mode && text[0] != '\0') {
+		drw_setscheme(drw, scheme[SchemeCursor]);
+		char vi_char[] = {text[cursor], '\0'};
+		drw_text(drw, x + curpos, 0, TEXTW(vi_char) - lrpad, bh, 0, vi_char, 0);
+	} else if (using_vi_mode) {
+		drw_rect(drw, x + curpos, 2, lrpad / 2, bh - 4, 1, 0);
+	} else
+	#endif // VI_MODE_PATCH
 	#if LINE_HEIGHT_PATCH
 	drw_rect(drw, x + curpos - 1, 2 + (bh-fh)/2, 2, fh - 4, 1, 0);
 	#else
@@ -584,8 +605,24 @@ drawmenu(void)
 	#endif // PASSWORD_PATCH
 
 	curpos = TEXTW(text) - TEXTW(&text[cursor]);
-	if ((curpos += lrpad / 2 - 1) < w) {
+	curpos += lrpad / 2 - 1;
+
+	#if VI_MODE_PATCH
+	if (using_vi_mode && text[0] != '\0') {
+		drw_setscheme(drw, scheme[SchemeCursor]);
+		char vi_char[] = {text[cursor], '\0'};
+		drw_text(drw, x + curpos, 0, TEXTW(vi_char) - lrpad, bh, 0, vi_char, 0);
+	} else if (using_vi_mode) {
 		drw_setscheme(drw, scheme[SchemeNorm]);
+		drw_rect(drw, x + curpos, 2, lrpad / 2, bh - 4, 1, 0);
+	} else
+	#endif // VI_MODE_PATCH
+	if (curpos < w) {
+		#if CARET_SCHEME_PATCH
+		drw_setscheme(drw, scheme[SchemeCaret]);
+		#else
+		drw_setscheme(drw, scheme[SchemeNorm]);
+		#endif // CARET_SCHEME_PATCH
 		#if CARET_WIDTH_PATCH && LINE_HEIGHT_PATCH
 		drw_rect(drw, x + curpos, 2 + (bh-fh)/2, caret_width, fh - 4, 1, 0);
 		#elif CARET_WIDTH_PATCH
@@ -746,8 +783,14 @@ grabkeyboard(void)
 	/* try to grab keyboard, we may have to wait for another process to ungrab */
 	for (i = 0; i < 1000; i++) {
 		if (XGrabKeyboard(dpy, DefaultRootWindow(dpy), True, GrabModeAsync,
-		                  GrabModeAsync, CurrentTime) == GrabSuccess)
+		                  GrabModeAsync, CurrentTime) == GrabSuccess) {
+			#if MOUSE_SUPPORT_PATCH
+			/* one off attempt at grabbing the mouse pointer to avoid interactions
+			 * with other windows while dmenu is active */
+			XGrabPointer(dpy, DefaultRootWindow(dpy), True, ButtonPressMask, GrabModeAsync, GrabModeAsync, None, None, CurrentTime);
+			#endif // MOUSE_SUPPORT_PATCH
 			return;
+		}
 		nanosleep(&ts, NULL);
 	}
 	die("cannot grab keyboard");
@@ -981,6 +1024,22 @@ keypress(XKeyEvent *ev)
 	case XLookupBoth: /* a KeySym and a string are returned: use keysym */
 		break;
 	}
+
+	#if VI_MODE_PATCH
+	if (using_vi_mode) {
+		vi_keypress(ksym, ev);
+		return;
+	}
+
+	if (vi_mode &&
+			   (ksym == global_esc.ksym &&
+				(ev->state & global_esc.state) == global_esc.state)) {
+		using_vi_mode = 1;
+		if (cursor)
+			cursor = nextrune(-1);
+		goto draw;
+	}
+	#endif // VI_MODE_PATCH
 
 	if (ev->state & ControlMask) {
 		switch(ksym) {
@@ -1243,8 +1302,16 @@ insert:
 			if (print_index)
 				printf("%d\n", sel->index);
 			else
-			#endif // PRINTINDEX_PATCH
+			#if SEPARATOR_PATCH
+				puts(sel->text_output);
+			#else
+				puts(sel->text);
+			#endif // SEPARATOR_PATCH
+			#elif SEPARATOR_PATCH
+			puts(sel->text_output);
+			#else
 			puts(sel->text);
+			#endif // PRINTINDEX_PATCH | SEPARATOR_PATCH
 		} else {
 			if (text[0] == startpipe[0]) {
 				strncpy(text + strlen(text),pipeout,8);
@@ -1253,27 +1320,33 @@ insert:
 			puts(text);
 		}
 		#elif PRINTINPUTTEXT_PATCH
-		if (use_text_input)
+		if (use_text_input) {
+			#if SEPARATOR_PATCH
+			puts((sel && (ev->state & ShiftMask)) ? sel->text_output : text);
+			#else
 			puts((sel && (ev->state & ShiftMask)) ? sel->text : text);
+			#endif // SEPARATOR_PATCH
 		#if PRINTINDEX_PATCH
-		else if (print_index)
+		} else if (print_index) {
 			printf("%d\n", (sel && !(ev->state & ShiftMask)) ? sel->index : -1);
 		#endif // PRINTINDEX_PATCH
-		else
+		} else {
 			#if SEPARATOR_PATCH
 			puts((sel && !(ev->state & ShiftMask)) ? sel->text_output : text);
 			#else
 			puts((sel && !(ev->state & ShiftMask)) ? sel->text : text);
 			#endif // SEPARATOR_PATCH
+		}
 		#elif PRINTINDEX_PATCH
-		if (print_index)
+		if (print_index) {
 			printf("%d\n", (sel && !(ev->state & ShiftMask)) ? sel->index : -1);
-		else
+		} else {
 			#if SEPARATOR_PATCH
 			puts((sel && !(ev->state & ShiftMask)) ? sel->text_output : text);
 			#else
 			puts((sel && !(ev->state & ShiftMask)) ? sel->text : text);
 			#endif // SEPARATOR_PATCH
+		}
 		#elif SEPARATOR_PATCH
 		puts((sel && !(ev->state & ShiftMask)) ? sel->text_output : text);
 		#else
@@ -1370,6 +1443,11 @@ draw:
 		fflush(stdout);
 	}
 	#endif // INCREMENTAL_PATCH
+	#if VI_MODE_PATCH
+	if (using_vi_mode && text[cursor] == '\0')
+		--cursor;
+	#endif // VI_MODE_PATCH
+
 	drawmenu();
 }
 
@@ -1892,6 +1970,9 @@ usage(void)
 		#if CARET_WIDTH_PATCH
 		"[-cw caret_width] "
 		#endif // CARET_WIDTH_PATCH
+		#if VI_MODE_PATCH
+		"[-vi] "
+		#endif // VI_MODE_PATCH
 		#if MANAGED_PATCH
 		"[-wm] "
 		#endif // MANAGED_PATCH
@@ -2030,6 +2111,13 @@ main(int argc, char *argv[])
 			fstrncmp = strncasecmp;
 			fstrstr = cistrstr;
 		#endif // CASEINSENSITIVE_PATCH
+		#if VI_MODE_PATCH
+		} else if (!strcmp(argv[i], "-vi")) {
+			vi_mode = 1;
+			using_vi_mode = start_mode;
+			global_esc.ksym = XK_Escape;
+			global_esc.state = 0;
+		#endif // VI_MODE_PATCH
 		#if MANAGED_PATCH
 		} else if (!strcmp(argv[i], "-wm")) { /* display as managed wm window */
 			managed = 1;
