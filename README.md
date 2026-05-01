@@ -1,32 +1,84 @@
-Similar to [dwm-flexipatch](https://github.com/bakkeby/dwm-flexipatch) this dmenu 5.3 (b1e217b,
-2025-03-17) project has a different take on patching. It uses preprocessor directives to decide
-whether or not to include a patch during build time. Essentially this means that this build, for
-better or worse, contains both the patched _and_ the original code. The aim being that you can
-select which patches to include and the build will contain that code and nothing more.
+<div align="center">
+    <img src="./docs/static/logo.svg"  height=80>
+    <h1>dmenu</h1>
+    <p>Efficient dynamic menu for X.</p>
+</div>
 
-For example to include the `alpha` patch then you would only need to flip this setting from 0
-to 1 in [patches.h](https://github.com/bakkeby/dmenu-flexipatch/blob/master/patches.def.h):
+Similar to [dwm-flexipatch](https://github.com/Zen-Path/dwm-flexipatch) this
+[dmenu](https://tools.suckless.org/dmenu/) 5.3 (b1e217b, 2025-03-17) fork uses
+preprocessor directives to decide whether or not to include a patch into the final
+binary.
+
+Both patched and unpatched code are included in the source. Patches are enabled or
+disabled at build time via flags defined in [patches.h](./patches.h).
+
+For example, to enable the `alpha` patch, flip the setting from `0` to `1`:
+
 ```c
 #define ALPHA_PATCH 1
 ```
 
-Once you have found out what works for you and what doesn't then you should be in a better position
-to choose patches should you want to start patching from scratch.
+This fork automatically runs [flexipatch-finalizer](https://github.com/Zen-Path/flexipatch-finalizer)
+during installation.
 
-Alternatively if you have found the patches you want, but don't want the rest of the flexipatch
-entanglement on your plate then you may want to have a look at
-[flexipatch-finalizer](https://github.com/bakkeby/flexipatch-finalizer); a custom pre-processor
-tool that removes all the unused flexipatch code leaving you with a build that contains the patches
-you selected.
+Unlike its typical use (removing unused code from the source), here it is only applied
+to the generated `config.h`. This produces a simplified version of the configuration
+file, making it easier to inspect the active build configuration.
 
-Refer to [https://tools.suckless.org/dmenu/](https://tools.suckless.org/dmenu/) for details on
-dmenu, how to install it and how it works.
+This step does **not** modify the rest of the source code.
 
-Browsing patches? There is a [map of patches](https://coggle.it/diagram/YjT2DD6jBM9dayf3) diagram which tries to organise patches into categories.
+To get a better look at all the patches, you can use this [map of patches](https://coggle.it/diagram/YjT2DD6jBM9dayf3),
+which tries to organize them into categories.
 
----
+- [Setup](#setup)
+  - [Requirements](#requirements)
+  - [Installation](#installation)
+  - [Usage](#usage)
+- [Preview](#preview)
+- [Changelog](#changelog)
+- [Patches included](#patches-included)
 
-### Changelog:
+## Setup
+
+### Requirements
+
+You need the Xlib header files installed (`libX11` on Arch).
+
+### Installation
+
+1. Edit [config.mk](./config.mk) to match your setup (default prefix is `/usr/local`).
+2. Build and install:
+
+```sh
+sudo make clean install
+```
+
+### Usage
+
+```sh
+# Simple invocation:
+ls | dmenu -p "Pick a file"
+
+# Manually building the choices:
+echo "banana\norange\ntomato\n" | dmenu -p "Pick your favorite"
+
+# Display options in a list form:
+ls | dmenu -p "Pick a file" -l 10
+```
+
+For more usage info, see the `man` page.
+
+## Preview
+
+<p align="center">
+  <img src="./docs/static/dmenu_horizontal-list.png" width="85%" title="Horizontal list"/>
+</p>
+
+<p align="center">
+  <img src="./docs/static/dmenu_vertical-multi-selection.png" height="300px" title="Vertical multiple selections"/>
+</p>
+
+## Changelog
 
 2025-05-28 - Added the colored caret and vi mode patches
 
@@ -74,7 +126,7 @@ Browsing patches? There is a [map of patches](https://coggle.it/diagram/YjT2DD6j
              mouse-support, navhistory, non-blocking-stdin, password, pipeout, printinputtext,
              rejectnomatch, scroll, vertfull, wmtype and xyw patches
 
-### Patches included:
+## Patches included
 
    - [alpha](https://github.com/bakkeby/patches/blob/master/dmenu/dmenu-alpha-5.0_20210725_523aa08.diff)
       - adds transparency for the dmenu window
@@ -103,7 +155,7 @@ Browsing patches? There is a [map of patches](https://coggle.it/diagram/YjT2DD6j
         Xft library that can handle them
 
    - [colored caret](https://tools.suckless.org/dmenu/patches/colored-caret/)
-      - adds the `SchemeCaret` colour scheme allowing customised styling of the caret
+      - adds the `SchemeCaret` color scheme allowing customized styling of the caret
 
    - [dynamic_options](https://tools.suckless.org/dmenu/patches/dynamicoptions/)
       - adds a flag (`-dy`) which makes dmenu run the command given to it whenever input is changed
@@ -214,7 +266,7 @@ Browsing patches? There is a [map of patches](https://coggle.it/diagram/YjT2DD6j
         rest of the input field
 
    - [prefix-completion](https://tools.suckless.org/dmenu/patches/prefix-completion/)
-      - changes the behaviour of matched items and the Tab key to allow tab completion
+      - changes the behavior of matched items and the Tab key to allow tab completion
 
    - [preselect](https://tools.suckless.org/dmenu/patches/preselect/)
       - adds an option `-ps` to preselect an item by providing the index that should be pre-selected
@@ -239,7 +291,7 @@ Browsing patches? There is a [map of patches](https://coggle.it/diagram/YjT2DD6j
         the input width was calculated based on the input options
       - this feature was removed in favour of hardcoding the input width to always take up 1/3rd of
         the available space
-      - this patch adds that feature back in with some bespoke performance optimisations at the cost
+      - this patch adds that feature back in with some bespoke performance optimizations at the cost
         of accuracy and correctness
 
    - [restrict-return](https://tools.suckless.org/dmenu/patches/restrict-return/)
