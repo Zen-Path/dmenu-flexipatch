@@ -100,7 +100,7 @@ char *colors[][2] = {
 	/*               fg         bg       */
 	[SchemeNorm] = { "#bbbbbb", "#222222" },
 	[SchemeSel]  = { "#eeeeee", "#005577" },
-	[SchemeOut]  = { "#000000", "#00ffff" },
+	[SchemeOut]  = { "#000000", "#076678" },
 	#if BORDER_PATCH
 	[SchemeBorder] = { "#000000", "#005577" },
 	#endif // BORDER_PATCH
