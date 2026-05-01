@@ -9,6 +9,10 @@
 #include "drw.h"
 #include "util.h"
 
+#if BIDI_PATCH && !PANGO_PATCH
+#include <fribidi.h>
+#endif //BIDI_PATCH
+
 #if !PANGO_PATCH || HIGHLIGHT_PATCH
 #define UTF_INVALID 0xFFFD
 
@@ -58,6 +62,30 @@ utf8len(const char *c)
 }
 #endif // HIGHLIGHT_PATCH
 #endif // PANGO_PATCH
+
+#if BIDI_PATCH && !PANGO_PATCH
+static char fribidi_text[BUFSIZ] = "";
+
+static void
+apply_fribidi(const char *str)
+{
+	FriBidiStrIndex len = strlen(str);
+	FriBidiChar logical[BUFSIZ];
+	FriBidiChar visual[BUFSIZ];
+	FriBidiParType base = FRIBIDI_PAR_ON;
+	FriBidiCharSet charset;
+
+	if (len == 0) {
+		fribidi_text[0] = 0;
+		return;
+	}
+
+	charset = fribidi_parse_charset("UTF-8");
+	len = fribidi_charset_to_unicode(charset, str, len, logical);
+	fribidi_log2vis(logical, len, &base, visual, NULL, NULL, NULL);
+	fribidi_unicode_to_charset(charset, visual, len, fribidi_text);
+}
+#endif //BIDI_PATCH
 
 Drw *
 #if ALPHA_PATCH
@@ -303,8 +331,7 @@ drw_clr_create(Drw *drw, Clr *dest, const char *clrname)
 	#endif // ALPHA_PATCH
 }
 
-/* Wrapper to create color schemes. The caller has to call free(3) on the
- * returned color scheme when done using it. */
+/* Create color schemes. */
 Clr *
 #if ALPHA_PATCH
 drw_scm_create(Drw *drw, const char *clrnames[], const unsigned int alphas[], size_t clrcount)
@@ -316,7 +343,7 @@ drw_scm_create(Drw *drw, const char *clrnames[], size_t clrcount)
 	Clr *ret;
 
 	/* need at least two colors for a scheme */
-	if (!drw || !clrnames || clrcount < 2 || !(ret = ecalloc(clrcount, sizeof(XftColor))))
+	if (!drw || !clrnames || clrcount < 2 || !(ret = ecalloc(clrcount, sizeof(Clr))))
 		return NULL;
 
 	for (i = 0; i < clrcount; i++)
@@ -326,6 +353,30 @@ drw_scm_create(Drw *drw, const char *clrnames[], size_t clrcount)
 		drw_clr_create(drw, &ret[i], clrnames[i]);
 		#endif // ALPHA_PATCH
 	return ret;
+}
+
+void
+drw_clr_free(Drw *drw, Clr *c)
+{
+	if (!drw || !c)
+		return;
+
+	/* c is typedef XftColor Clr */
+	XftColorFree(drw->dpy, DefaultVisual(drw->dpy, drw->screen),
+	             DefaultColormap(drw->dpy, drw->screen), c);
+}
+
+void
+drw_scm_free(Drw *drw, Clr *scm, size_t clrcount)
+{
+	size_t i;
+
+	if (!drw || !scm)
+		return;
+
+	for (i = 0; i < clrcount; i++)
+		drw_clr_free(drw, &scm[i]);
+	free(scm);
 }
 
 #if !PANGO_PATCH
@@ -466,11 +517,17 @@ drw_text(Drw *drw, int x, int y, unsigned int w, unsigned int h, unsigned int lp
 		w -= lpad;
 	}
 
-	usedfont = drw->fonts;
 	if (!ellipsis_width && render)
 		ellipsis_width = drw_fontset_getwidth(drw, ellipsis);
 	if (!invalid_width && render)
 		invalid_width = drw_fontset_getwidth(drw, invalid);
+
+	#if BIDI_PATCH
+	apply_fribidi(text);
+	text = fribidi_text;
+	#endif // BIDI_PATCH
+
+	usedfont = drw->fonts;
 	while (1) {
 		ew = ellipsis_len = utf8err = utf8strlen = 0;
 		utf8str = text;

@@ -5,7 +5,7 @@
 </div>
 
 Similar to [dwm-flexipatch](https://github.com/Zen-Path/dwm-flexipatch) this
-[dmenu](https://tools.suckless.org/dmenu/) 5.3 (b1e217b, 2025-03-17) fork uses
+[dmenu](https://tools.suckless.org/dmenu/) 5.4 (7175c48, 2026-01-28) fork uses
 preprocessor directives to decide whether or not to include a patch into the final
 binary.
 
@@ -80,6 +80,10 @@ For more usage info, see the `man` page.
 
 ## Changelog
 
+2025-11-29 - Added the bidi patch
+
+2025-10-16 - Added the dynamic height and quiet patches
+
 2025-05-28 - Added the colored caret and vi mode patches
 
 2024-07-17 - Added the input method patch
@@ -135,6 +139,9 @@ For more usage info, see the `man` page.
       - adds padding for dmenu in similar fashion to the [barpadding](https://dwm.suckless.org/patches/barpadding/)
         patch for dwm
 
+   - [bidi](https://tools.suckless.org/dmenu/patches/bidi/)
+      - adds support for Right-To-Left (RTL) languages, such as Hebrew, Arabic, and Farsi
+
    - [border](http://tools.suckless.org/dmenu/patches/border/)
       - adds a border around the dmenu window
 
@@ -156,6 +163,9 @@ For more usage info, see the `man` page.
 
    - [colored caret](https://tools.suckless.org/dmenu/patches/colored-caret/)
       - adds the `SchemeCaret` color scheme allowing customized styling of the caret
+
+   - [dynamic height](https://gist.github.com/mircodz/1d9b88db958089bb08adbf45eb53b66f)
+      - adjusts the height of the bar depending on how many items are drawn in the list presentation
 
    - [dynamic_options](https://tools.suckless.org/dmenu/patches/dynamicoptions/)
       - adds a flag (`-dy`) which makes dmenu run the command given to it whenever input is changed
@@ -281,6 +291,9 @@ For more usage info, see the `man` page.
       - this patch adds a flag `-t` which makes Return key ignore selection and print the input
         text to stdout
       - the flag basically swaps the functions of Return and Shift+Return hotkeys
+
+   - [quiet](https://github.com/baskerville/dmenu_qxyw/blob/master/dmenu_qxyw-hg.diff)
+      - adds a flag (-q) which makes dmenu not show any items if the search string is empty
 
    - [rejectnomatch](https://tools.suckless.org/dmenu/patches/reject-no-match/)
       - adds a new flag to dmenu with which text input will be rejected if it would result in no
